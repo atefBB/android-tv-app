@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    show ProviderBase, ProviderContainer, ProviderObserver, ProviderScope;
+    show ConsumerState, ConsumerStatefulWidget, ProviderBase, ProviderContainer, ProviderObserver, ProviderScope;
 import 'package:hive_flutter/adapters.dart';
 import 'package:logger/logger.dart';
 import 'package:mawaqit/i18n/AppLanguage.dart';
@@ -24,6 +24,7 @@ import 'package:mawaqit/src/services/mosque_manager.dart';
 import 'package:mawaqit/src/services/settings_manager.dart';
 import 'package:mawaqit/src/services/theme_manager.dart';
 import 'package:mawaqit/src/services/user_preferences_manager.dart';
+import 'package:mawaqit/src/state_management/workflow/announcement_workflow/announcement_workflow_notifier.dart';
 import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
 
@@ -46,7 +47,22 @@ Future<void> main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerStatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  ConsumerState createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  @override
+  void initState() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(announcementWorkflowProvider.notifier).initializeAnnouncement();
+    });
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(

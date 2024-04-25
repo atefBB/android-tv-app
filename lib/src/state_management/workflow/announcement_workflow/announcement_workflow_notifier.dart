@@ -28,6 +28,12 @@ class AnnouncementWorkflowNotifier extends AutoDisposeAsyncNotifier<Announcement
     return AnnouncementWorkflowState.initial();
   }
 
+  /// [initializeAnnouncement] initialize the announcements to start at the startup of the app
+  Future<void> initializeAnnouncement() async {
+    final announcementImpl = await ref.read(announcementRepositoryProvider.future);
+    announcementImpl.getAnnouncements();
+  }
+
   /// [startAnnouncement] starts the announcement workflow for the provided announcements.
   Future<void> startAnnouncement([bool isPlayingVideo = true]) async {
     final sharedPreference = await SharedPreferences.getInstance();
