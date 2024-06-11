@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mawaqit/src/data/data_source/quran/recite_remote_data_source.dart';
 import 'package:mawaqit/src/data/repository/quran/quran_favorite_impl.dart';
 import 'package:mawaqit/src/domain/model/quran/moshaf_model.dart';
 import 'package:mawaqit/src/domain/model/quran/reciter_model.dart';
@@ -34,38 +35,50 @@ class ReciterSelectionScreen extends ConsumerStatefulWidget {
 }
 
 class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen> {
-  int selectedReciterIndex = 0;
+  List<MoshafModel>? selectedMoshaf;
+  ReciterModel? selectedReciter;
+
+  late TextEditingController _textEditingController;
+  late SearchController _searchController;
   int selectedReciteTypeIndex = 0;
   FocusNode reciterFocusNode = FocusNode();
   FocusNode reciteTypeFocusNode = FocusNode();
   final ScrollController _reciterScrollController = ScrollController();
   double sizeOfContainerReciter = 15.w;
   double marginOfContainerReciter = 16;
+  String lastLoggedText = '';
 
   @override
   void initState() {
     super.initState();
+    _searchController = SearchController();
+    _textEditingController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       log('FocusScope.of(context).requestFocus(reciterFocusNode)');
       ref.read(reciteNotifierProvider.notifier).getAllReciters();
       FocusScope.of(context).requestFocus(reciterFocusNode);
     });
     // reciterFocusNode.requestFocus(); // Set the initial focus on the reciter grid
-    RawKeyboard.instance.addListener(_handleKeyEvent);
+    // RawKeyboard.instance.addListener(_handleKeyEvent);
   }
 
   @override
   void dispose() {
+    _textEditingController.dispose();
+    _searchController.dispose();
     reciterFocusNode.dispose();
     reciteTypeFocusNode.dispose();
     _reciterScrollController.dispose();
     super.dispose();
   }
 
+  bool isDark = false;
+
   @override
   Widget build(BuildContext context) {
     final l10n = S.of(context);
     final isRTL = Directionality.of(context) == TextDirection.rtl;
+    log('quran:ui: ReciterSelectionScreen: build ${lastLoggedText}');
     return QuranBackground(
       isSwitch: true,
       appBar: AppBar(
@@ -86,6 +99,7 @@ class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen>
             color: Colors.white,
           ),
           onPressed: () {
+            FocusScope.of(context).unfocus();
             Navigator.pop(context);
           },
         ),
@@ -99,65 +113,96 @@ class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ref.watch(quranFavoriteNotifierProvider).when(
-                        data: (reciter) {
-                          if (reciter.favoriteReciters.isNotEmpty) {
-                            return Column(
-                              children: [
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: Text(
-                                    l10n.favoriteReciter,
-                                    textAlign: isRTL ? TextAlign.right : TextAlign.left,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.bold,
+                  SizedBox(
+                    width: double.infinity,
+                    child: SearchAnchor(
+                      searchController: _searchController,
+                      isFullScreen: true,
+                      viewHintText: 'Search for reciter ....',
+                      viewBuilder: (suggestions) => Consumer(
+                        builder: (_, ref, __) =>
+                            ref.watch(reciteNotifierProvider).whenOrNull(
+                                  data: (suggestions) => ListView.builder(
+                                    itemCount: suggestions.searchReciters.length,
+                                    itemBuilder: (_, index) => ListTile(
+                                      title: Text(suggestions.searchReciters[index].name),
+                                      onTap: () {
+                                        ref.read(reciteNotifierProvider.notifier).setSelectedReciter(
+                                              reciterModel: suggestions.searchReciters[index],
+                                            );
+                                        ref.read(reciteNotifierProvider.notifier).setSelectedMoshaf(
+                                              moshafModel: suggestions.searchReciters[index].moshaf[0],
+                                            );
+                                        ref.read(quranNotifierProvider.notifier).getSuwarByReciter(
+                                              selectedMoshaf: suggestions.searchReciters[index].moshaf[0],
+                                            );
+                                        // close the keyboard
+                                        FocusScope.of(context).unfocus();
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => SurahSelectionScreen(
+                                              reciterId: suggestions.searchReciters[index].id,
+                                              riwayatId: suggestions.searchReciters[index].moshaf[0].moshafType,
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
-                                ),
-                                SizedBox(height: 14),
-                                ReciterListView(
-                                  onSelected: (index) {
-                                    setState(() {
-                                      selectedReciterIndex = index;
-                                    });
-                                  },
-                                  isFavoriteButton: false,
-                                  reciterList: reciter.favoriteReciters,
-                                ),
-                                SizedBox(height: 5.h),
-                              ],
-                            );
-                          } else {
-                            return Container();
-                          }
-                        },
-                        loading: () => _buildReciterListShimmer(true),
-                        error: (error, stackTrace) => Text('Error: $error'),
+                                ) ??
+                            const SizedBox(),
                       ),
-                  Text(
-                    l10n.allReciters,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.bold,
+                      builder: (context, textController) {
+                        return SearchBar(
+                          trailing: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                color: Colors.white,
+                              ),
+                              onPressed: () {
+                                textController.clear();
+                                log('quran:ui: searchRecitersByName: 2 ${textController.text}');
+                              },
+                            ),
+                          ],
+                          hintText: 'Search for reciter ....',
+                          controller: _textEditingController,
+                          focusNode: reciterFocusNode,
+                          onTap: () {
+                            log('quran:ui: searchRecitersByName: 0 ${_textEditingController.text}');
+                          },
+                          onChanged: (value) {
+                            log('quran:ui: searchRecitersByName: 1 $value');
+                            ref.read(reciteNotifierProvider.notifier).searchRecitersByName(value);
+                            lastLoggedText = value;
+                          },
+                        );
+                      },
+                      suggestionsBuilder: (BuildContext context, SearchController search) => [],
                     ),
                   ),
-                  SizedBox(height: 10),
-                  ref.watch(reciteNotifierProvider).when(
-                        data: (reciter) => ReciterListView(
-                          isFavoriteButton: true,
-                          onSelected: (index) {
-                            setState(() {
-                              selectedReciterIndex = index;
-                            });
-                          },
-                          reciterList: reciter.reciters,
-                        ),
-                        loading: () => _buildReciterListShimmer(true),
-                        error: (error, stackTrace) => Text('Error: $error'),
-                      ),
+                  buildReciterSearchSection(
+                    context,
+                    ref,
+                    lastLoggedText != '',
+                    l10n.searchReciterList,
+                    isRTL,
+                  ),
+                  buildReciterFavoriteSection(
+                    context,
+                    ref,
+                    lastLoggedText == '',
+                    l10n.favoriteReciter,
+                    isRTL,
+                  ),
+                  buildReciterSection(
+                    context,
+                    ref,
+                    lastLoggedText == '',
+                    l10n.allReciters,
+                  ),
                   SizedBox(height: 5.h),
                   Container(
                     width: double.infinity,
@@ -173,10 +218,10 @@ class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen>
                   ),
                   ref.watch(reciteNotifierProvider).when(
                         data: (reciter) {
-                          log('quran:ui: selectedReciterIndex: $selectedReciterIndex, reciter: ${reciter.reciters.length}');
+                          log('quran:ui: selectedReciterIndex: $selectedMoshaf, reciter: ${reciter.reciters.length}');
                           return reciter.reciters.isNotEmpty
                               ? _buildReciteTypeGrid(
-                                  reciter.reciters[selectedReciterIndex].moshaf,
+                                  selectedMoshaf ?? [],
                                 )
                               : _buildReciteTypeGridShimmer(true);
                         },
@@ -190,6 +235,150 @@ class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen>
         ],
       ),
     );
+  }
+
+  Widget buildReciterSearchSection(
+    BuildContext context,
+    WidgetRef ref,
+    bool isShow,
+    String title,
+    bool isRTL,
+  ) {
+    return isShow
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: 20),
+              lastLoggedText != ''
+                  ? ref.watch(reciteNotifierProvider).when(
+                        data: (reciter) {
+                          if (reciter.searchReciters.isNotEmpty) {
+                            return Column(
+                              children: [
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: Text(
+                                    title,
+                                    textAlign: isRTL ? TextAlign.right : TextAlign.left,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: 14),
+                                ReciterListView(
+                                  onSelected: (index) {
+                                    setState(() {
+                                      selectedMoshaf = reciter.searchReciters[index].moshaf;
+                                    });
+                                  },
+                                  isFavoriteButton: false,
+                                  reciterList: reciter.searchReciters,
+                                ),
+                              ],
+                            );
+                          } else {
+                            return Container();
+                          }
+                        },
+                        loading: () => _buildReciterListShimmer(true),
+                        error: (error, stackTrace) => Text('Error: $error'),
+                      )
+                  : Container(),
+            ],
+          )
+        : Container();
+  }
+
+  Widget buildReciterFavoriteSection(
+    BuildContext context,
+    WidgetRef ref,
+    bool isShow,
+    String title,
+    bool isRTL,
+  ) {
+    return isShow
+        ? ref.watch(quranFavoriteNotifierProvider).when(
+              data: (reciter) {
+                if (reciter.favoriteReciters.isNotEmpty) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          title,
+                          textAlign: isRTL ? TextAlign.right : TextAlign.left,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 14),
+                      ReciterListView(
+                        onSelected: (index) {
+                          setState(() {
+                            selectedMoshaf = reciter.favoriteReciters[index].moshaf;
+                            selectedReciter = reciter.favoriteReciters[index];
+                          });
+                        },
+                        isFavoriteButton: false,
+                        reciterList: reciter.favoriteReciters,
+                      ),
+                      SizedBox(height: 5.h),
+                    ],
+                  );
+                } else {
+                  return Container();
+                }
+              },
+              loading: () => _buildReciterListShimmer(true),
+              error: (error, stackTrace) => Text('Error: $error'),
+            )
+        : Container();
+  }
+
+  Widget buildReciterSection(
+    BuildContext context,
+    WidgetRef ref,
+    bool isShow,
+    String title,
+  ) {
+    return isShow
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 10),
+              ref.watch(reciteNotifierProvider).when(
+                    data: (reciter) => ReciterListView(
+                      isFavoriteButton: true,
+                      onSelected: (index) {
+                        setState(() {
+                          selectedMoshaf = reciter.reciters[index].moshaf;
+                          selectedReciter = reciter.reciters[index];
+                        });
+                      },
+                      reciterList: reciter.reciters,
+                    ),
+                    loading: () => _buildReciterListShimmer(true),
+                    error: (error, stackTrace) => Text('Error: $error'),
+                  ),
+            ],
+          )
+        : Container();
   }
 
   Widget _buildRoundedButton({required IconData icon, required VoidCallback onPressed}) {
@@ -255,9 +444,8 @@ class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen>
               ref.read(reciteNotifierProvider.notifier).setSelectedMoshaf(
                     moshafModel: reciterTypes[selectedReciteTypeIndex],
                   );
-              log('quran:ui: selectedReciteTypeIndex: ${selectedReciterIndex} ${reciters}');
               ref.read(reciteNotifierProvider.notifier).setSelectedReciter(
-                    reciterModel: reciters[selectedReciterIndex],
+                    reciterModel: selectedReciter!,
                   );
 
               log('quran:ui: getSuwarByReciter: ${reciterTypes[selectedReciteTypeIndex]}');
@@ -269,7 +457,7 @@ class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen>
                 context,
                 MaterialPageRoute(
                   builder: (context) => SurahSelectionScreen(
-                    reciterId: reciters[selectedReciterIndex].id,
+                    reciterId: selectedReciter!.id,
                     riwayatId: reciterTypes[selectedReciteTypeIndex].moshafType,
                   ),
                 ),
@@ -299,94 +487,94 @@ class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen>
     );
   }
 
-  void _handleKeyEvent(RawKeyEvent value) {
-    if (!mounted) return;
-    log('native_key_event $value');
-    if (value is RawKeyDownEvent && !value.repeat) {
-      final List<ReciterModel> reciters = ref.read(reciteNotifierProvider).maybeWhen(
-            data: (data) => data.reciters,
-            orElse: () => [],
-          );
-      // log('reciters: $reciters');
-      log('native_key_event: ${reciterFocusNode.hasFocus} || ${reciteTypeFocusNode.hasFocus}');
-      if (reciterFocusNode.hasFocus) {
-        _handleReciteKeyEvent(value, reciters);
-      } else if (reciteTypeFocusNode.hasFocus) {
-        _handleReciteTypeKeyEvent(value, reciters, reciters[selectedReciterIndex].moshaf);
-      }
-    }
-  }
+  // void _handleKeyEvent(RawKeyEvent value) {
+  //   if (!mounted) return;
+  //   log('native_key_event $value');
+  //   if (value is RawKeyDownEvent && !value.repeat) {
+  //     final List<ReciterModel> reciters = ref.read(reciteNotifierProvider).maybeWhen(
+  //           data: (data) => data.reciters,
+  //           orElse: () => [],
+  //         );
+  //     // log('reciters: $reciters');
+  //     log('native_key_event: ${reciterFocusNode.hasFocus} || ${reciteTypeFocusNode.hasFocus}');
+  //     if (reciterFocusNode.hasFocus) {
+  //       _handleReciteKeyEvent(value, reciters);
+  //     } else if (reciteTypeFocusNode.hasFocus) {
+  //       _handleReciteTypeKeyEvent(value, reciters, reciters[selectedReciterIndex].moshaf);
+  //     }
+  //   }
+  // }
 
-  void _handleReciteKeyEvent(RawKeyEvent value, List<ReciterModel> reciters) {
-    log('_handleReciteKeyEvent: key_event: $value');
-    if (value is RawKeyDownEvent) {
-      if (value.logicalKey == LogicalKeyboardKey.arrowRight) {
-        if (selectedReciterIndex < reciters.length - 1) {
-          setState(() {
-            selectedReciterIndex++;
-            _animateToReciter(selectedReciterIndex, value.logicalKey);
-          });
-        }
-      } else if (value.logicalKey == LogicalKeyboardKey.arrowLeft) {
-        log('_handleReciteKeyEvent: selected_index: arrowLeft $selectedReciteTypeIndex');
-        if (selectedReciterIndex > 0) {
-          setState(() {
-            selectedReciterIndex--;
-            _animateToReciter(selectedReciterIndex, value.logicalKey);
-          });
-        }
-      } else if (value.logicalKey == LogicalKeyboardKey.select) {
-        log('selected_logicalKey: ${reciters[selectedReciterIndex]}');
-        FocusScope.of(context).unfocus();
-        FocusScope.of(context).requestFocus(reciteTypeFocusNode);
-        setState(() {
-          selectedReciteTypeIndex = 0;
-        });
-      }
-    }
-  }
+  // void _handleReciteKeyEvent(RawKeyEvent value, List<ReciterModel> reciters) {
+  //   log('_handleReciteKeyEvent: key_event: $value');
+  //   if (value is RawKeyDownEvent) {
+  //     if (value.logicalKey == LogicalKeyboardKey.arrowRight) {
+  //       if (selectedReciterIndex < reciters.length - 1) {
+  //         setState(() {
+  //           selectedReciterIndex++;
+  //           _animateToReciter(selectedReciterIndex, value.logicalKey);
+  //         });
+  //       }
+  //     } else if (value.logicalKey == LogicalKeyboardKey.arrowLeft) {
+  //       log('_handleReciteKeyEvent: selected_index: arrowLeft $selectedReciteTypeIndex');
+  //       if (selectedReciterIndex > 0) {
+  //         setState(() {
+  //           selectedReciterIndex--;
+  //           _animateToReciter(selectedReciterIndex, value.logicalKey);
+  //         });
+  //       }
+  //     } else if (value.logicalKey == LogicalKeyboardKey.select) {
+  //       log('selected_logicalKey: ${reciters[selectedReciterIndex]}');
+  //       FocusScope.of(context).unfocus();
+  //       FocusScope.of(context).requestFocus(reciteTypeFocusNode);
+  //       setState(() {
+  //         selectedReciteTypeIndex = 0;
+  //       });
+  //     }
+  //   }
+  // }
 
-  void _handleReciteTypeKeyEvent(RawKeyEvent value, List<ReciterModel> reciters, List<MoshafModel> reciterTypes) {
-    log('_handleReciteTypeKeyEvent: $value');
-    if (value is RawKeyDownEvent) {
-      if (reciteTypeFocusNode.hasFocus) {
-        if (value.logicalKey == LogicalKeyboardKey.arrowRight) {
-          log('_handleKeyEvent: selected_index: arrowRight $selectedReciteTypeIndex || ${reciters[selectedReciterIndex].moshaf.length - 1}');
-          if (selectedReciteTypeIndex < reciters[selectedReciterIndex].moshaf.length - 1) {
-            setState(() {
-              selectedReciteTypeIndex++;
-            });
-          }
-        } else if (value.logicalKey == LogicalKeyboardKey.arrowLeft) {
-          log('_handleKeyEvent: selected_index: arrowLeft $selectedReciteTypeIndex');
-          if (selectedReciteTypeIndex > 0) {
-            setState(() {
-              selectedReciteTypeIndex--;
-            });
-          }
-        } else if (value.logicalKey == LogicalKeyboardKey.select) {
-          setState(() {
-            selectedReciteTypeIndex = selectedReciteTypeIndex;
-          });
-          log('begin 1 selectedReciteTypeIndex: $selectedReciteTypeIndex');
-
-          ref.read(reciteNotifierProvider.notifier).setSelectedMoshaf(
-                moshafModel: reciters[selectedReciterIndex].moshaf[selectedReciterIndex],
-              );
-          log('begin 3 selectedReciteTypeIndex: $selectedReciteTypeIndex');
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SurahSelectionScreen(
-                reciterId: reciters[selectedReciterIndex].id,
-                riwayatId: reciterTypes[selectedReciteTypeIndex].moshafType,
-              ),
-            ),
-          );
-        }
-      }
-    }
-  }
+  // void _handleReciteTypeKeyEvent(RawKeyEvent value, List<ReciterModel> reciters, List<MoshafModel> reciterTypes) {
+  //   log('_handleReciteTypeKeyEvent: $value');
+  //   if (value is RawKeyDownEvent) {
+  //     if (reciteTypeFocusNode.hasFocus) {
+  //       if (value.logicalKey == LogicalKeyboardKey.arrowRight) {
+  //         log('_handleKeyEvent: selected_index: arrowRight $selectedReciteTypeIndex || ${reciters[selectedReciterIndex].moshaf.length - 1}');
+  //         if (selectedReciteTypeIndex < reciters[selectedReciterIndex].moshaf.length - 1) {
+  //           setState(() {
+  //             selectedReciteTypeIndex++;
+  //           });
+  //         }
+  //       } else if (value.logicalKey == LogicalKeyboardKey.arrowLeft) {
+  //         log('_handleKeyEvent: selected_index: arrowLeft $selectedReciteTypeIndex');
+  //         if (selectedReciteTypeIndex > 0) {
+  //           setState(() {
+  //             selectedReciteTypeIndex--;
+  //           });
+  //         }
+  //       } else if (value.logicalKey == LogicalKeyboardKey.select) {
+  //         setState(() {
+  //           selectedReciteTypeIndex = selectedReciteTypeIndex;
+  //         });
+  //         log('begin 1 selectedReciteTypeIndex: $selectedReciteTypeIndex');
+  //
+  //         ref.read(reciteNotifierProvider.notifier).setSelectedMoshaf(
+  //               moshafModel: reciters[selectedReciterIndex].moshaf[selectedReciterIndex],
+  //             );
+  //         log('begin 3 selectedReciteTypeIndex: $selectedReciteTypeIndex');
+  //         Navigator.push(
+  //           context,
+  //           MaterialPageRoute(
+  //             builder: (context) => SurahSelectionScreen(
+  //               reciterId: reciters[selectedReciterIndex].id,
+  //               riwayatId: reciterTypes[selectedReciteTypeIndex].moshafType,
+  //             ),
+  //           ),
+  //         );
+  //       }
+  //     }
+  //   }
+  // }
 
   void _animateToReciter(int index, LogicalKeyboardKey direction) {
     final itemWidth = sizeOfContainerReciter + marginOfContainerReciter; // Item width + right margin
@@ -430,16 +618,15 @@ class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen>
           data: (recitersList) {
             final reciters = recitersList.reciters;
             final isFavorite = ref.watch(quranFavoriteNotifierProvider).maybeWhen(
-                  data: (reciter) =>
-                      reciter.favoriteReciters.map((e) => e.id).contains(reciters[selectedReciterIndex].id),
+                  data: (reciter) => reciter.favoriteReciters.map((e) => e.id).contains(selectedReciter!.id),
                   orElse: () => false,
                 );
             return ElevatedButton(
               onPressed: () {
-                log('quran:ui: isFavorite: $isFavorite ${selectedReciterIndex}');
+                log('quran:ui: isFavorite: $isFavorite}');
                 if (reciters.isEmpty) return;
                 ref.read(quranFavoriteNotifierProvider.notifier).saveFavoriteReciter(
-                      reciterId: reciters[selectedReciterIndex].id,
+                      reciterId: selectedReciter!.id,
                     );
               },
               style: ElevatedButton.styleFrom(
