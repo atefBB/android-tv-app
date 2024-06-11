@@ -74,6 +74,23 @@ class ReciteNotifier extends AsyncNotifier<ReciteState> {
       ),
     );
   }
+
+  Future<void> searchRecitersByName(String name) async {
+    state = AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      log('quran: ReciteNotifier: searchRecitersByName: $name');
+      final allReciters = state.value!.reciters;
+      final filteredReciters = allReciters
+          .where(
+            (reciter) => reciter.name.toLowerCase().contains(name.toLowerCase()),
+          )
+          .toList();
+      log('quran: ReciteNotifier: searchRecitersByName: ${filteredReciters.length}');
+      return state.value!.copyWith(
+        searchReciters: filteredReciters,
+      );
+    });
+  }
 }
 
 final reciteNotifierProvider = AsyncNotifierProvider<ReciteNotifier, ReciteState>(ReciteNotifier.new);
