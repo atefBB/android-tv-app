@@ -21,6 +21,13 @@ import android.os.Build.VERSION
 import android.os.Build.VERSION_CODES
 import android.app.admin.DevicePolicyManager
 import java.io.IOException
+import android.app.KeyguardManager
+import android.content.Context
+import java.io.BufferedReader
+import java.io.DataOutputStream
+import java.io.InputStreamReader
+import android.os.AsyncTask
+import android.util.Log
 class MainActivity : FlutterActivity() {
 private lateinit var mAdminComponentName: ComponentName
   private lateinit var mDevicePolicyManager: DevicePolicyManager
@@ -43,6 +50,10 @@ private lateinit var mAdminComponentName: ComponentName
                             }
                         }  
                         "checkRoot"->checkRoot(result)
+                        "toggleScreenOn"->toggleScreenOn(call, result)
+                        "toggleScreenOff"->toggleScreenOff(call, result)
+                        "toggleBoxScreenOff"->toggleBoxScreenOff(call, result)
+                        "toggleBoxScreenOn"->toggleBoxScreenOn(call, result)
                         "clearAppData"->{
                             val isSuccess = clearDataRestart()
         result.success(isSuccess)
@@ -186,4 +197,110 @@ private fun connectToWifi(call: MethodCall, result: MethodChannel.Result) {
       return false
     }
   }
+
+
+
+
+private fun toggleScreenOn(call: MethodCall, result: MethodChannel.Result) {
+    AsyncTask.execute {
+        try {
+                  val commands = listOf(
+                    "input keyevent 82",
+                    "am start -W -n com.mawaqit.androidtv/.MainActivity"
+                )
+                                executeCommand(commands, result) // Lock the device
+
+          
+        } catch (e: Exception) {
+            handleCommandException(e, result)
+        }
+    }
+}
+private fun toggleBoxScreenOff(call: MethodCall, result: MethodChannel.Result) {
+    AsyncTask.execute {
+        try {
+                  val commands = listOf(
+                    "mount -o rw,remount /",
+                    "cd /sys/class/hdmi/hdmi/attr",
+                    "echo 0 > phy_power"
+
+                )
+                                executeCommand(commands, result) // Lock the device
+
+          
+        } catch (e: Exception) {
+            handleCommandException(e, result)
+        }
+    }
+}
+private fun toggleBoxScreenOn(call: MethodCall, result: MethodChannel.Result) {
+    AsyncTask.execute {
+        try {
+                  val commands = listOf(
+                    "mount -o rw,remount /",
+                    "cd /sys/class/hdmi/hdmi/attr",
+                    "echo 1 > phy_power",
+                    "am start -W -n com.mawaqit.androidtv/.MainActivity"
+                )
+                                executeCommand(commands, result) 
+          
+        } catch (e: Exception) {
+            handleCommandException(e, result)
+        }
+    }
+}
+private fun toggleScreenOff(call: MethodCall, result: MethodChannel.Result) {
+    AsyncTask.execute {
+        try {
+    
+                executeCommand(listOf("input keyevent 26"), result) // Lock the device
+            
+        } catch (e: Exception) {
+            handleCommandException(e, result)
+        }
+    }
+}
+
+
+
+
+private fun executeCommand(commands: List<String>, result: MethodChannel.Result) {
+    try {
+        Log.d("SU_COMMAND", "Executing commands: ${commands.joinToString(separator = " && ")}")
+
+        val suProcess = Runtime.getRuntime().exec("su")
+        val os = DataOutputStream(suProcess.outputStream)
+
+        val command = commands.joinToString(separator = " && ") + "\n"
+        Log.d("SU_COMMAND", "Writing command to DataOutputStream: $command")
+        os.writeBytes(command)
+        os.flush()
+        os.close()
+
+        val output = BufferedReader(InputStreamReader(suProcess.inputStream)).readText()
+        val error = BufferedReader(InputStreamReader(suProcess.errorStream)).readText()
+
+        Log.i("SU_COMMAND", "Command output: $output")
+        Log.e("SU_COMMAND", "Command error: $error")
+
+        val exitCode = suProcess.waitFor()
+        Log.d("SU_COMMAND", "Exit code: $exitCode")
+
+        if (exitCode != 0) {
+            Log.e("SU_COMMAND", "Command failed with exit code $exitCode.")
+            result.error("CMD_ERROR", "Command failed", null)
+        } else {
+            Log.i("SU_COMMAND", "Command executed successfully.")
+            result.success("Command executed successfully.")
+        }
+    } catch (e: Exception) {
+        Log.e("SU_COMMAND", "Exception occurred: ${e.message}")
+        handleCommandException(e, result)
+    }
+}
+
+private fun handleCommandException(e: Exception, result: MethodChannel.Result) {
+    result.error("Exception", "An exception occurred: $e", null)
+}
+
 }
