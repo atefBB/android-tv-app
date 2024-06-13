@@ -237,5 +237,6 @@
   "chooseQuranPage": "Choose the page",
   "favoriteReciter": "Favorite Reciters",
   "allReciters": "All Reciters",
-  "searchReciterList": "Search List"
+  "searchReciterList": "Search List",
+  "searchReciter": "Search for reciter ...."
 }

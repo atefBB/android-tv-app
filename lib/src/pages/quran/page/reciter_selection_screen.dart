@@ -56,7 +56,7 @@ class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       log('FocusScope.of(context).requestFocus(reciterFocusNode)');
       ref.read(reciteNotifierProvider.notifier).getAllReciters();
-      FocusScope.of(context).requestFocus(reciterFocusNode);
+      // FocusScope.of(context).requestFocus(reciterFocusNode);
     });
     // reciterFocusNode.requestFocus(); // Set the initial focus on the reciter grid
     // RawKeyboard.instance.addListener(_handleKeyEvent);
@@ -118,7 +118,7 @@ class _ReciterSelectionScreenState extends ConsumerState<ReciterSelectionScreen>
                     child: SearchAnchor(
                       searchController: _searchController,
                       isFullScreen: true,
-                      viewHintText: 'Search for reciter ....',
+                      viewHintText: l10n.searchReciter,
                       viewBuilder: (suggestions) => Consumer(
                         builder: (_, ref, __) =>
                             ref.watch(reciteNotifierProvider).whenOrNull(
