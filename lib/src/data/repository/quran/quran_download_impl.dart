@@ -49,7 +49,6 @@ class QuranDownloadRepositoryImpl implements QuranDownloadRepository {
 
 
   /// [deleteOldQuran] deletes the old quran
-  @override
   Future<void> deleteOldQuran({
     String? path,
   }) async {
