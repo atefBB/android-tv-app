@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mawaqit/src/data/repository/quran/quran_download_impl.dart';
 import 'package:mawaqit/src/domain/error/quran_exceptions.dart';
+import 'package:mawaqit/src/helpers/quran_path_helper.dart';
 import 'package:mawaqit/src/state_management/quran/download_quran/download_quran_state.dart';
+import 'package:mawaqit/src/state_management/quran/reading/quran_reading_state.dart';
 import 'package:path_provider/path_provider.dart';
 
 class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
@@ -22,7 +24,7 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
     try {
       state = AsyncLoading();
 
-      final downloadQuranRepoImpl = await ref.read(quranDownloadRepositoryProvider.future);
+      final downloadQuranRepoImpl = await ref.read(quranDownloadRepositoryProvider(MoshafType.warsh).future);
       final localVersion = await downloadQuranRepoImpl.getLocalQuranVersion();
       final remoteVersion = await downloadQuranRepoImpl.getRemoteQuranVersion();
 
@@ -30,11 +32,14 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
         state = AsyncData(UpdateAvailable(remoteVersion));
       } else {
         final savePath = await getApplicationSupportDirectory();
-        final svgFolderPath = '${savePath.path}/quran';
+        final quranPathHelper = QuranPathHelper(
+          applicationSupportDirectory: savePath,
+          moshafType: MoshafType.warsh,
+        );
         state = AsyncData(
           NoUpdate(
             version: remoteVersion,
-            svgFolderPath: svgFolderPath,
+            svgFolderPath: quranPathHelper.quranDirectoryPath,
           ),
         );
       }
@@ -49,7 +54,7 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
       // Notify that the update check has started
       state = AsyncLoading();
 
-      final downloadQuranRepoImpl = await ref.read(quranDownloadRepositoryProvider.future);
+      final downloadQuranRepoImpl = await ref.read(quranDownloadRepositoryProvider(MoshafType.warsh).future);
       final localVersion = await downloadQuranRepoImpl.getLocalQuranVersion();
       final remoteVersion = await downloadQuranRepoImpl.getRemoteQuranVersion();
 
@@ -57,43 +62,28 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
         // Notify that the download has started
         state = AsyncData(Downloading(0));
 
-        final cancelToken = CancelToken();
         // Download the Quran
         await downloadQuranRepoImpl.downloadQuran(
           version: remoteVersion,
+          moshafType: MoshafType.warsh,
           onReceiveProgress: (progress) {
             state = AsyncData(Downloading(progress));
           },
-        );
-
-        // Notify that the extraction has started
-        state = AsyncData(Extracting(0));
-
-        await downloadQuranRepoImpl.deleteOldQuran();
-
-        final savePath = await getApplicationSupportDirectory();
-        final filePath = '${savePath.path}/quran_zip/$remoteVersion';
-        final destinationDir = Directory('${savePath.path}/quran');
-
-        // Extract the Quran
-        await downloadQuranRepoImpl.extractQuran(
-          zipFilePath: filePath,
-          destinationPath: destinationDir.path,
           onExtractProgress: (progress) {
             state = AsyncData(Extracting(progress));
           },
         );
+        final savePath = await getApplicationSupportDirectory();
 
-        // Delete the old Quran files
-
-        // Delete the downloaded ZIP file
-        await downloadQuranRepoImpl.deleteZipFile(remoteVersion);
-
+        final quranPathHelper = QuranPathHelper(
+          applicationSupportDirectory: savePath,
+          moshafType: MoshafType.warsh,
+        );
         // Notify the success state with the new version
         state = AsyncData(
           Success(
             version: remoteVersion,
-            svgFolderPath: destinationDir.path,
+            svgFolderPath: quranPathHelper.quranDirectoryPath,
           ),
         );
       } else {
@@ -117,7 +107,7 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
   Future<void> cancelDownload() async {
     try {
       state = AsyncLoading();
-      final downloadQuranRepoImpl = await ref.read(quranDownloadRepositoryProvider.future);
+      final downloadQuranRepoImpl = await ref.read(quranDownloadRepositoryProvider(MoshafType.warsh).future);
       downloadQuranRepoImpl.cancelDownload();
       state = AsyncData(CancelDownload());
     } catch (e, s) {

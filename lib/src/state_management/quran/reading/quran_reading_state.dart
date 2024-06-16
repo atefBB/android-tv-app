@@ -1,6 +1,11 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+enum MoshafType {
+  warsh,
+  hafs,
+}
+
 class QuranReadingState extends Equatable {
   final int currentJuz;
   final int currentSurah;
@@ -37,7 +42,14 @@ class QuranReadingState extends Equatable {
   }
 
   @override
-  List<Object> get props => [currentJuz, currentSurah, currentPage, svgs, totalPages, isInitial];
+  List<Object> get props => [
+        currentJuz,
+        currentSurah,
+        currentPage,
+        svgs,
+        totalPages,
+        isInitial,
+      ];
 
   @override
   String toString() {

@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mawaqit/src/helpers/quran_path_helper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mawaqit/src/state_management/quran/reading/quran_reading_state.dart';
@@ -15,9 +16,9 @@ class QuranReadingNotifier extends AutoDisposeAsyncNotifier<QuranReadingState> {
 
   Future<List<String>> _loadAllPages() async {
     try {
-      final savePath = await getApplicationSupportDirectory();
-      final svgFolderPath = '${savePath.path}/quran';
-      final dir = Directory(svgFolderPath);
+      final applicationSupportDirectory = await getApplicationSupportDirectory();
+      final quranPathHelper = QuranPathHelper(applicationSupportDirectory: applicationSupportDirectory, moshafType: MoshafType.warsh);
+      final dir = Directory(quranPathHelper.quranDirectoryPath);
       final files = dir.listSync().where((file) => file.path.endsWith('.svg')).toList();
       files.sort((a, b) => a.path.compareTo(b.path)); // Ensure sorted order
       return files.map((file) => file.path).toList();

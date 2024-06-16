@@ -1,3 +1,5 @@
+import 'package:mawaqit/src/state_management/quran/reading/quran_reading_state.dart';
+
 abstract class QuranDownloadRepository {
   Future<String?> getLocalQuranVersion();
 
@@ -5,21 +7,11 @@ abstract class QuranDownloadRepository {
 
   Future<void> downloadQuran({
     required String version,
+    required MoshafType moshafType,
     String? filePath,
     required dynamic Function(double) onReceiveProgress,
+    required dynamic Function(double) onExtractProgress,
   });
-
-  Future<void> extractQuran({
-    required String zipFilePath,
-    required String destinationPath,
-    required Function(double) onExtractProgress,
-  });
-
-  Future<void> deleteOldQuran({
-    String? path,
-  });
-
-  Future<void> deleteZipFile(String zipFileName);
 
   void cancelDownload();
 }

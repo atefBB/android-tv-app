@@ -6,16 +6,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mawaqit/src/const/constants.dart';
 import 'package:mawaqit/src/domain/error/quran_exceptions.dart';
 import 'package:mawaqit/src/helpers/directory_helper.dart';
+import 'package:mawaqit/src/state_management/quran/reading/quran_reading_state.dart';
 import 'package:path_provider/path_provider.dart';
+
+import 'package:mawaqit/src/helpers/quran_path_helper.dart';
 
 class DownloadQuranRemoteDataSource {
   final Dio dio;
+  final QuranPathHelper quranPathHelper;
   CancelToken? cancelToken;
-  final String applicationSupportDirectoryPath;
 
   DownloadQuranRemoteDataSource({
     required this.dio,
-    required this.applicationSupportDirectoryPath,
+    required this.quranPathHelper,
     this.cancelToken,
   });
 
@@ -37,21 +40,16 @@ class DownloadQuranRemoteDataSource {
 
   /// [downloadQuranWithProgress] downloads the quran zip file
   Future<void> downloadQuranWithProgress({
-    required String versionName,
-    String? applicationDirectoryPath,
-    String url = "https://mawaqit.github.io/mawaqit-announcements/public/quran/",
+    required String version,
+    String url = "https://mawaqit.github.io/mawaqit-announcements/public/quran/v1.0.0.zip",
     Function(double)? onReceiveProgress,
   }) async {
-    log('quran: DownloadQuranRemoteDataSource: downloadQuranWithProgress - start');
-    applicationDirectoryPath ??= applicationSupportDirectoryPath;
-
-    final filePath = '$applicationDirectoryPath/quran_zip/$versionName';
-    log('quran: DownloadQuranRemoteDataSource: downloadQuranWithProgress - filePath: $filePath');
+    log('quran: DownloadQuranRemoteDataSource: downloadQuranWithProgress - filePath: ${quranPathHelper.quranDirectoryPath}');
 
     try {
       await dio.download(
-        '$url$versionName',
-        filePath,
+        url,
+        quranPathHelper.getQuranZipFilePath(version),
         onReceiveProgress: (received, total) {
           final progress = (received / total) * 100;
           // log('quran: DownloadQuranRemoteDataSource: downloadQuranWithProgress - progress: $progress');
@@ -62,19 +60,17 @@ class DownloadQuranRemoteDataSource {
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         log('quran: DownloadQuranRemoteDataSource: downloadQuranWithProgress - download cancelled');
-        await DirectoryHelper.deleteFileIfExists(filePath);
         await DirectoryHelper.deleteDirectories([
-          '$applicationDirectoryPath/quran_zip',
-          '$applicationDirectoryPath/quran',
+          quranPathHelper.quranZipDirectoryPath,
+          quranPathHelper.quranDirectoryPath,
         ]);
         throw CancelDownloadException();
       }
       throw Exception('Error occurred while downloading quran: $e');
     } catch (e) {
-      await DirectoryHelper.deleteFileIfExists(filePath);
       await DirectoryHelper.deleteDirectories([
-        '$applicationDirectoryPath/quran_zip',
-        '$applicationDirectoryPath/quran',
+        quranPathHelper.quranZipDirectoryPath,
+        quranPathHelper.quranDirectoryPath,
       ]);
       throw UnknownException(e.toString());
     }
@@ -88,12 +84,15 @@ class DownloadQuranRemoteDataSource {
   }
 }
 
-final downloadQuranRemoteDataSourceProvider = FutureProvider<DownloadQuranRemoteDataSource>(
-  (ref) async {
-    final savePath = await getApplicationSupportDirectory();
+final downloadQuranRemoteDataSourceProvider = FutureProvider.family<DownloadQuranRemoteDataSource, MoshafType>(
+  (ref, type) async {
+    final quranPathHelper = QuranPathHelper(
+      applicationSupportDirectory: await getApplicationSupportDirectory(),
+      moshafType: type,
+    );
     final cancelToken = CancelToken();
     return DownloadQuranRemoteDataSource(
-      applicationSupportDirectoryPath: savePath.path,
+      quranPathHelper: quranPathHelper,
       cancelToken: cancelToken,
       dio: ref.read(dioProvider),
     );
