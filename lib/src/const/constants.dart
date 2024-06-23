@@ -46,4 +46,6 @@ abstract class QuranConstant {
   static const String kReciterBox = 'reciter_box';
   static const String kQuranModePref = 'quran_mode';
   static const String kSavedCurrentPage = 'saved_current_page';
+  static const String quranMoshafConfigJsonUrl =
+      'https://mawaqit.github.io/mawaqit-announcements/public/quran/config.json';
 }
