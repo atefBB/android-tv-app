@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -20,13 +21,13 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
   /// [checkForUpdate] checks for the Quran update
   ///
   /// If the Quran is not downloaded or the remote version is different from the local version,
-  Future<void> checkForUpdate() async {
+  Future<void> checkForUpdate(MoshafType moshafType) async {
     try {
       state = AsyncLoading();
 
       final downloadQuranRepoImpl = await ref.read(quranDownloadRepositoryProvider(MoshafType.warsh).future);
-      final localVersion = await downloadQuranRepoImpl.getLocalQuranVersion();
-      final remoteVersion = await downloadQuranRepoImpl.getRemoteQuranVersion();
+      final localVersion = await downloadQuranRepoImpl.getLocalQuranVersion(moshafType: moshafType);
+      final remoteVersion = await downloadQuranRepoImpl.getRemoteQuranVersion(moshafType: moshafType);
 
       if (localVersion == null || remoteVersion != localVersion) {
         state = AsyncData(UpdateAvailable(remoteVersion));
@@ -49,14 +50,14 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
   }
 
   /// [download] downloads the Quran and extracts it
-  Future<void> download() async {
+  Future<void> download(MoshafType moshafType) async {
     try {
       // Notify that the update check has started
       state = AsyncLoading();
 
-      final downloadQuranRepoImpl = await ref.read(quranDownloadRepositoryProvider(MoshafType.warsh).future);
-      final localVersion = await downloadQuranRepoImpl.getLocalQuranVersion();
-      final remoteVersion = await downloadQuranRepoImpl.getRemoteQuranVersion();
+      final downloadQuranRepoImpl = await ref.read(quranDownloadRepositoryProvider(moshafType).future);
+      final localVersion = await downloadQuranRepoImpl.getLocalQuranVersion(moshafType: moshafType);
+      final remoteVersion = await downloadQuranRepoImpl.getRemoteQuranVersion(moshafType: moshafType);
 
       if (localVersion == null || remoteVersion != localVersion) {
         // Notify that the download has started
@@ -73,11 +74,12 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
             state = AsyncData(Extracting(progress));
           },
         );
+
         final savePath = await getApplicationSupportDirectory();
 
         final quranPathHelper = QuranPathHelper(
           applicationSupportDirectory: savePath,
-          moshafType: MoshafType.warsh,
+          moshafType: moshafType,
         );
         // Notify the success state with the new version
         state = AsyncData(
@@ -87,12 +89,16 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
           ),
         );
       } else {
-        final savePath = await getApplicationSupportDirectory();
-        final svgFolderPath = '${savePath.path}/quran';
+        log('has $remoteVersion');
+        final dir = await getApplicationSupportDirectory();
+        final quranPathHelper = QuranPathHelper(
+          applicationSupportDirectory: dir,
+          moshafType: moshafType,
+        );
         state = AsyncData(
           NoUpdate(
             version: remoteVersion,
-            svgFolderPath: svgFolderPath,
+            svgFolderPath: quranPathHelper.quranDirectoryPath,
           ),
         );
       }

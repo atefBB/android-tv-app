@@ -19,7 +19,9 @@ class QuranDownloadRepositoryImpl implements QuranDownloadRepository {
 
   /// [getLocalQuranVersion] fetches the local quran version
   @override
-  Future<String?> getLocalQuranVersion() async {
+  Future<String?> getLocalQuranVersion({
+    required MoshafType moshafType,
+  }) async {
     final version = localDataSource.getQuranVersion();
     return version;
   }
@@ -35,6 +37,7 @@ class QuranDownloadRepositoryImpl implements QuranDownloadRepository {
   }) async {
     await remoteDataSource.downloadQuranWithProgress(
       version: version,
+      moshafType: moshafType,
       onReceiveProgress: onReceiveProgress,
     );
 
@@ -47,20 +50,14 @@ class QuranDownloadRepositoryImpl implements QuranDownloadRepository {
     await _deleteZipFile(version);
   }
 
-
-  /// [deleteOldQuran] deletes the old quran
-  Future<void> deleteOldQuran({
-    String? path,
-  }) async {
-    final quranPath = path ?? localDataSource.quranPathHelper.quranDirectoryPath;
-    final deletePath = '$quranPath/quran';
-    await DirectoryHelper.deleteExistingSvgFiles(path: deletePath);
-  }
-
   /// [getRemoteQuranVersion] fetches the remote quran version
   @override
-  Future<String> getRemoteQuranVersion() {
-    return remoteDataSource.getRemoteQuranVersion();
+  Future<String> getRemoteQuranVersion({
+    required MoshafType moshafType,
+  }) {
+    return remoteDataSource.getRemoteQuranVersion(
+      moshafType: moshafType,
+    );
   }
 
   /// [cancelDownload] cancels the download

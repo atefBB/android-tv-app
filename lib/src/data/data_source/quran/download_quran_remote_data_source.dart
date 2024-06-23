@@ -24,12 +24,15 @@ class DownloadQuranRemoteDataSource {
 
   /// [getRemoteQuranVersion] fetches the remote quran version
   Future<String> getRemoteQuranVersion({
-    String url = "https://mawaqit.github.io/mawaqit-announcements/public/quran/config.json",
+    required MoshafType moshafType,
   }) async {
     try {
       log('quran: DownloadQuranRemoteDataSource: getRemoteQuranVersion - start');
-      final version = await dio.get(url).then((value) {
-        return value.data['fileName'];
+      final parameterName = _getConfigurationParameters(moshafType);
+      log('quran: DownloadQuranRemoteDataSource: getRemoteQuranVersion - $parameterName');
+      final version = await dio.get(QuranConstant.quranMoshafConfigJsonUrl).then((value) {
+        log('quran: DownloadQuranRemoteDataSource: getRemoteQuranVersion - $value');
+        return value.data[parameterName];
       });
       log('quran: DownloadQuranRemoteDataSource: getRemoteQuranVersion - $version');
       return version as String;
@@ -41,12 +44,15 @@ class DownloadQuranRemoteDataSource {
   /// [downloadQuranWithProgress] downloads the quran zip file
   Future<void> downloadQuranWithProgress({
     required String version,
-    String url = "https://mawaqit.github.io/mawaqit-announcements/public/quran/v1.0.0.zip",
+    required MoshafType moshafType,
     Function(double)? onReceiveProgress,
   }) async {
-    log('quran: DownloadQuranRemoteDataSource: downloadQuranWithProgress - filePath: ${quranPathHelper.quranDirectoryPath}');
+    log('quran: DownloadQuranRemoteDataSource: downloadQuranWithProgress - filePath: ${quranPathHelper
+        .quranDirectoryPath}');
 
     try {
+      final url = _getUrlByMoshafType(moshafType);
+
       await dio.download(
         url,
         quranPathHelper.getQuranZipFilePath(version),
@@ -81,6 +87,24 @@ class DownloadQuranRemoteDataSource {
     cancelToken?.cancel();
     cancelToken = CancelToken();
     log('quran: DownloadQuranRemoteDataSource: cancelDownload - download cancelled');
+  }
+
+  String _getUrlByMoshafType(MoshafType moshafType) {
+    switch (moshafType) {
+      case MoshafType.warsh:
+        return 'https://github.com/mawaqit/mawaqit-announcements/blob/main/public/quran/warsh.zip';
+      case MoshafType.hafs:
+        return 'https://github.com/mawaqit/mawaqit-announcements/blob/main/public/quran/v1.0.0.zip';
+    }
+  }
+
+  String _getConfigurationParameters(MoshafType moshafType) {
+    switch (moshafType) {
+      case MoshafType.warsh:
+        return 'warshFileName';
+      case MoshafType.hafs:
+        return 'fileName';
+    }
   }
 }
 
