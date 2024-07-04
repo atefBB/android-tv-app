@@ -39,8 +39,8 @@ class ReciteImpl implements ReciteRepository {
       await _localDataSource.saveReciters(sortedReciters);
       return sortedReciters;
     } catch (e) {
-      final reciters = await _localDataSource.getReciters();
-      return reciters;
+      final recitersLocal = await _localDataSource.getReciters();
+      return _sortReciters(recitersLocal);
     }
   }
 
