@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mawaqit/src/const/constants.dart';
 import 'package:mawaqit/src/domain/error/quran_exceptions.dart';
 import 'package:mawaqit/src/helpers/directory_helper.dart';
+import 'package:mawaqit/src/helpers/version_helper.dart';
 import 'package:mawaqit/src/state_management/quran/reading/quran_reading_state.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -35,7 +36,7 @@ class DownloadQuranRemoteDataSource {
         return value.data[parameterName];
       });
       log('quran: DownloadQuranRemoteDataSource: getRemoteQuranVersion - $version');
-      return version as String;
+      return VersionHelper.extractVersion(version);
     } catch (e) {
       throw FetchRemoteQuranVersionException(e.toString());
     }
@@ -47,12 +48,11 @@ class DownloadQuranRemoteDataSource {
     required MoshafType moshafType,
     Function(double)? onReceiveProgress,
   }) async {
-    log('quran: DownloadQuranRemoteDataSource: downloadQuranWithProgress - filePath: ${quranPathHelper
-        .quranDirectoryPath}');
+    log('quran: DownloadQuranRemoteDataSource: downloadQuranWithProgress - filePath: ${quranPathHelper.quranDirectoryPath}');
 
     try {
-      final url = _getUrlByMoshafType(moshafType);
-
+      final url = _getUrlByMoshafType(moshafType, version);
+      log('downloadQuranWithProgress: url: ${url}');
       await dio.download(
         url,
         quranPathHelper.getQuranZipFilePath(version),
@@ -89,12 +89,15 @@ class DownloadQuranRemoteDataSource {
     log('quran: DownloadQuranRemoteDataSource: cancelDownload - download cancelled');
   }
 
-  String _getUrlByMoshafType(MoshafType moshafType) {
+  String _getUrlByMoshafType(MoshafType moshafType, String version) {
+    log('type before: $moshafType and url: $version');
     switch (moshafType) {
       case MoshafType.warsh:
-        return 'https://github.com/mawaqit/mawaqit-announcements/blob/main/public/quran/warsh.zip';
+        return '${QuranConstant.kQuranZipBaseUrl}warsh-v$version.zip';
       case MoshafType.hafs:
-        return 'https://github.com/mawaqit/mawaqit-announcements/blob/main/public/quran/v1.0.0.zip';
+        String url = '${QuranConstant.kQuranZipBaseUrl}v$version.zip';
+        log('type: $moshafType and url: $url');
+        return url;
     }
   }
 

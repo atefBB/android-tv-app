@@ -35,6 +35,7 @@ class _QuranReadingScreenState extends ConsumerState<QuranReadingScreen> {
   late PageController _pageController;
   late FocusNode _leftFocusNode;
   late FocusNode _rightFocusNode;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -43,7 +44,7 @@ class _QuranReadingScreenState extends ConsumerState<QuranReadingScreen> {
     _rightFocusNode = FocusNode();
     _pageController = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await showDownloadQuranAlertDialog(context, ref);
+      await showDownloadQuranAlertDialog(context, ref, _scaffoldKey);
     });
   }
 
@@ -77,6 +78,7 @@ class _QuranReadingScreenState extends ConsumerState<QuranReadingScreen> {
     });
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Colors.white,
       floatingActionButton: SizedBox(
         width: 30.sp, // Set the desired width

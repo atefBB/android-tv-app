@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mawaqit/src/data/repository/quran/quran_download_impl.dart';
 import 'package:mawaqit/src/domain/error/quran_exceptions.dart';
 import 'package:mawaqit/src/helpers/quran_path_helper.dart';
+import 'package:mawaqit/src/helpers/version_helper.dart';
 import 'package:mawaqit/src/state_management/quran/download_quran/download_quran_state.dart';
 import 'package:mawaqit/src/state_management/quran/reading/quran_reading_state.dart';
 import 'package:path_provider/path_provider.dart';
@@ -29,7 +30,7 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
       final localVersion = await downloadQuranRepoImpl.getLocalQuranVersion(moshafType: moshafType);
       final remoteVersion = await downloadQuranRepoImpl.getRemoteQuranVersion(moshafType: moshafType);
 
-      if (localVersion == null || remoteVersion != localVersion) {
+      if (localVersion == null || VersionHelper.isNewer(remoteVersion, localVersion)) {
         state = AsyncData(UpdateAvailable(remoteVersion));
       } else {
         final savePath = await getApplicationSupportDirectory();
@@ -62,11 +63,12 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
       if (localVersion == null || remoteVersion != localVersion) {
         // Notify that the download has started
         state = AsyncData(Downloading(0));
+        log('get download $moshafType');
 
         // Download the Quran
         await downloadQuranRepoImpl.downloadQuran(
           version: remoteVersion,
-          moshafType: MoshafType.warsh,
+          moshafType: moshafType,
           onReceiveProgress: (progress) {
             state = AsyncData(Downloading(progress));
           },
@@ -81,6 +83,7 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
           applicationSupportDirectory: savePath,
           moshafType: moshafType,
         );
+        log('state_management: DownloadQuranNotifier: quranPathHelper ${savePath} ${moshafType}');
         // Notify the success state with the new version
         state = AsyncData(
           Success(
