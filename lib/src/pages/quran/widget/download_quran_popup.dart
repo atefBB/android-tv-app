@@ -11,6 +11,14 @@ Future<void> showDownloadQuranAlertDialog(
     BuildContext context, WidgetRef ref, GlobalKey<ScaffoldState> scaffoldKey) async {
   MoshafType selectedMoshafType = MoshafType.hafs;
 
+  // check for update
+  await ref.read(downloadQuranNotifierProvider.notifier).checkForUpdate(selectedMoshafType);
+  final downloadQuranState = ref.read(downloadQuranNotifierProvider);
+  log('showDownloadQuranAlertDialog ');
+  if (downloadQuranState.value is NoUpdate) {
+    return;
+  }
+
   await showDialog(
     context: context,
     builder: (BuildContext context) {
@@ -69,37 +77,32 @@ Future<void> showDownloadQuranAlertDialog(
 }
 
 Future<void> startQuranDownload(
-  BuildContext context,
-  WidgetRef ref,
-  MoshafType moshafType,
-  GlobalKey<ScaffoldState> _scaffoldKey,
-) async {
-  await ref.read(downloadQuranNotifierProvider.notifier).checkForUpdate(moshafType);
+    BuildContext context,
+    WidgetRef ref,
+    MoshafType moshafType,
+    GlobalKey<ScaffoldState> scaffoldKey,
+    ) async {
   final state = ref.read(downloadQuranNotifierProvider);
 
   state.whenOrNull(
     data: (data) async {
       if (data is UpdateAvailable) {
-        final context = _scaffoldKey.currentContext;
+        final context = scaffoldKey.currentContext;
         if (context == null) return;
 
         final shouldDownload = await _showConfirmationDialog(context);
         if (shouldDownload) {
           log('get startQuranDownload ${shouldDownload} and ${moshafType}');
           await ref.read(downloadQuranNotifierProvider.notifier).download(moshafType);
-          await _showDownloadProgressDialog(context, ref);
+          await _showDownloadProgressDialog(context);
         }
       } else if (data is NoUpdate) {
-        final context = _scaffoldKey.currentContext;
-        if (context == null) return;
-
-        await _alreadyUpdatedVersion(context, ref);
+        return;
       }
     },
     error: (error, stackTrace) async {
-      final context = _scaffoldKey.currentContext;
+      final context = scaffoldKey.currentContext;
       if (context == null) return;
-
       _buildErrorPopup(context, error);
     },
   );
@@ -126,18 +129,16 @@ Future<bool> _showConfirmationDialog(BuildContext context) async {
     },
   );
 }
-Future<void> _showDownloadProgressDialog(BuildContext context, WidgetRef ref) async {
+
+Future<void> _showDownloadProgressDialog(BuildContext context) async {
   await showDialog(
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {
       return Consumer(
         builder: (context, ref, _) {
-          final downloadQuranState = ref.watch(downloadQuranNotifierProvider);
-          log('downloadQuranState: ${downloadQuranState}');
-          return downloadQuranState.when(
+          return ref.watch(downloadQuranNotifierProvider).when(
             data: (state) {
-              log('state changing ${state}');
               if (state is Downloading) {
                 return _buildDownloadingPopup(context, state.progress, ref);
               } else if (state is Extracting) {
@@ -145,14 +146,12 @@ Future<void> _showDownloadProgressDialog(BuildContext context, WidgetRef ref) as
               } else if (state is Success) {
                 return _buildSuccessPopup(context, state.version);
               } else {
-                log('Unexpected state: ${state.runtimeType}');
                 Navigator.pop(context);
                 return Container();
               }
             },
             loading: () => _buildCheckingPopup(context),
             error: (error, stackTrace) {
-              log('Error state: $error');
               return _buildErrorPopup(context, error);
             },
           );
@@ -163,7 +162,6 @@ Future<void> _showDownloadProgressDialog(BuildContext context, WidgetRef ref) as
 }
 
 Widget _buildDownloadingPopup(BuildContext context, double progress, WidgetRef ref) {
-  log('Building downloading popup with progress: $progress');
   return AlertDialog(
     title: Text(S.of(context).downloadingQuran),
     content: Column(
@@ -179,7 +177,6 @@ Widget _buildDownloadingPopup(BuildContext context, double progress, WidgetRef r
     actions: [
       TextButton(
         onPressed: () {
-          log('Cancel download pressed');
           ref.read(downloadQuranNotifierProvider.notifier).cancelDownload();
           Navigator.pop(context);
         },
@@ -188,37 +185,6 @@ Widget _buildDownloadingPopup(BuildContext context, double progress, WidgetRef r
     ],
   );
 }
-// Future<void> _showDownloadProgressDialog(BuildContext context, WidgetRef ref) async {
-//   await showDialog(
-//     context: context,
-//     barrierDismissible: false,
-//     builder: (BuildContext context) {
-//       return Consumer(
-//         builder: (context, ref, _) {
-//           final downloadQuranState = ref.watch(downloadQuranNotifierProvider);
-//           log('downloadQuranState: ${downloadQuranState}');
-//           return downloadQuranState.when(
-//             data: (state) {
-//               log('state changing ${state}');
-//               if (state is Downloading) {
-//                 return _buildDownloadingPopup(context, state.progress, ref);
-//               } else if (state is Extracting) {
-//                 return _buildExtractingPopup(context, state.progress);
-//               } else if (state is Success) {
-//                 return _buildSuccessPopup(context, state.version);
-//               } else {
-//                 Navigator.pop(context);
-//                 return Container();
-//               }
-//             },
-//             loading: () => _buildCheckingPopup(context),
-//             error: (error, stackTrace) => _buildErrorPopup(context, error),
-//           );
-//         },
-//       );
-//     },
-//   );
-// }
 
 Future<bool> _showFirstTimePopup(BuildContext context) async {
   return await showDialog(
@@ -259,31 +225,6 @@ Widget _buildCheckingPopup(BuildContext context) {
     ],
   );
 }
-
-// Widget _buildDownloadingPopup(BuildContext context, double progress, WidgetRef ref) {
-//   return AlertDialog(
-//     title: Text(S.of(context).downloadingQuran),
-//     content: Column(
-//       mainAxisSize: MainAxisSize.min,
-//       children: [
-//         LinearProgressIndicator(
-//           value: progress / 100,
-//         ),
-//         const SizedBox(height: 8),
-//         Text('${(progress).toStringAsFixed(2)}%'),
-//       ],
-//     ),
-//     actions: [
-//       TextButton(
-//         onPressed: () {
-//           ref.read(downloadQuranNotifierProvider.notifier).cancelDownload();
-//           Navigator.pop(context);
-//         },
-//         child: Text(S.of(context).cancel),
-//       ),
-//     ],
-//   );
-// }
 
 Widget _buildExtractingPopup(BuildContext context, double progress) {
   return AlertDialog(

@@ -45,9 +45,8 @@ class DownloadQuranLocalDataSource {
 
   /// [getQuranVersion] fetches the quran version
   String? getQuranVersion() {
-    final version = sharedPreference.getString(QuranConstant.kQuranLocalVersion) ?? '';
-    final checkSVGs = Directory(quranPathHelper.quranDirectoryPath);
-    if (checkSVGs.existsSync() && checkSVGs.listSync().isNotEmpty) {
+    final version = sharedPreference.getString(QuranConstant.kQuranLocalVersion);
+    if (version != null) {
       log('quran: DownloadQuranLocalDataSource: getQuranVersion - checkSVGs: $version');
       return version;
     } else {
