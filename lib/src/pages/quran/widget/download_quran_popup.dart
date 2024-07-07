@@ -14,7 +14,6 @@ Future<void> showDownloadQuranAlertDialog(
   // check for update
   await ref.read(downloadQuranNotifierProvider.notifier).checkForUpdate(selectedMoshafType);
   final downloadQuranState = ref.read(downloadQuranNotifierProvider);
-  log('showDownloadQuranAlertDialog ');
   if (downloadQuranState.value is NoUpdate) {
     return;
   }
@@ -84,7 +83,7 @@ Future<void> startQuranDownload(
     ) async {
   final state = ref.read(downloadQuranNotifierProvider);
 
-  state.whenOrNull(
+  state.maybeWhen(
     data: (data) async {
       if (data is UpdateAvailable) {
         final context = scaffoldKey.currentContext;
@@ -92,8 +91,7 @@ Future<void> startQuranDownload(
 
         final shouldDownload = await _showConfirmationDialog(context);
         if (shouldDownload) {
-          log('get startQuranDownload ${shouldDownload} and ${moshafType}');
-          await ref.read(downloadQuranNotifierProvider.notifier).download(moshafType);
+          ref.read(downloadQuranNotifierProvider.notifier).download(moshafType);
           await _showDownloadProgressDialog(context);
         }
       } else if (data is NoUpdate) {
@@ -104,6 +102,11 @@ Future<void> startQuranDownload(
       final context = scaffoldKey.currentContext;
       if (context == null) return;
       _buildErrorPopup(context, error);
+    },
+    orElse: () async {
+      final context = scaffoldKey.currentContext;
+      if (context == null) return;
+      _buildErrorPopup(context, 'Unknown error');
     },
   );
 }
@@ -135,24 +138,28 @@ Future<void> _showDownloadProgressDialog(BuildContext context) async {
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {
-      return Consumer(
-        builder: (context, ref, _) {
-          return ref.watch(downloadQuranNotifierProvider).when(
-            data: (state) {
-              if (state is Downloading) {
-                return _buildDownloadingPopup(context, state.progress, ref);
-              } else if (state is Extracting) {
-                return _buildExtractingPopup(context, state.progress);
-              } else if (state is Success) {
-                return _buildSuccessPopup(context, state.version);
-              } else {
-                Navigator.pop(context);
-                return Container();
-              }
-            },
-            loading: () => _buildCheckingPopup(context),
-            error: (error, stackTrace) {
-              return _buildErrorPopup(context, error);
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return Consumer(
+            builder: (context, ref, _) {
+              return ref.watch(downloadQuranNotifierProvider).when(
+                data: (state) {
+                  if (state is Downloading) {
+                    return _buildDownloadingPopup(context, state.progress, ref);
+                  } else if (state is Extracting) {
+                    return _buildExtractingPopup(context, state.progress);
+                  } else if (state is Success) {
+                    return _buildSuccessPopup(context, state.version);
+                  } else {
+                    Navigator.pop(context);
+                    return Container();
+                  }
+                },
+                loading: () => _buildCheckingPopup(context),
+                error: (error, stackTrace) {
+                  return _buildErrorPopup(context, error);
+                },
+              );
             },
           );
         },
@@ -268,20 +275,4 @@ Widget _buildErrorPopup(BuildContext context, Object error) {
   );
 }
 
-Future<void> _alreadyUpdatedVersion(BuildContext context, WidgetRef ref) async {
-  await showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text(S.of(context).quranIsUpdated),
-        content: Text(S.of(context).quranIsAlreadyDownloaded),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(S.of(context).ok),
-          ),
-        ],
-      );
-    },
-  );
-}
+

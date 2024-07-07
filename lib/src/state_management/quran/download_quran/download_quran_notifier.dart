@@ -63,7 +63,6 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
       if (localVersion == null || remoteVersion != localVersion) {
         // Notify that the download has started
         state = AsyncData(Downloading(0));
-        log('get download $moshafType');
 
         // Download the Quran
         await downloadQuranRepoImpl.downloadQuran(
@@ -83,7 +82,6 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
           applicationSupportDirectory: savePath,
           moshafType: moshafType,
         );
-        log('state_management: DownloadQuranNotifier: quranPathHelper ${savePath} ${moshafType}');
         // Notify the success state with the new version
         state = AsyncData(
           Success(
@@ -92,7 +90,6 @@ class DownloadQuranNotifier extends AsyncNotifier<DownloadQuranState> {
           ),
         );
       } else {
-        log('has $remoteVersion');
         final dir = await getApplicationSupportDirectory();
         final quranPathHelper = QuranPathHelper(
           applicationSupportDirectory: dir,
