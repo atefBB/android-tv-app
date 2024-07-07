@@ -95,7 +95,7 @@ class DownloadQuranRemoteDataSource {
       case MoshafType.warsh:
         return '${QuranConstant.kQuranZipBaseUrl}warsh-v$version.zip';
       case MoshafType.hafs:
-        String url = '${QuranConstant.kQuranZipBaseUrl}v$version.zip';
+        String url = '${QuranConstant.kQuranZipBaseUrl}hafs-v$version.zip';
         log('type: $moshafType and url: $url');
         return url;
     }
