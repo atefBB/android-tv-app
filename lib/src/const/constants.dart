@@ -39,7 +39,7 @@ abstract class MosqueManagerConstant {
 }
 
 abstract class QuranConstant {
-  static const String kQuranZipBaseUrl = "https://mawaqit.github.io/mawaqit-announcements/public/quran/";
+  static const String kQuranZipBaseUrl = "https://cdn.mawaqit.net/quran/";
   static const String kQuranLocalVersion = 'quran_local_version';
   static const String kQuranBaseUrl = 'https://mp3quran.net/api/v3/';
   static const String kSurahBox = 'surah_box';
@@ -47,5 +47,5 @@ abstract class QuranConstant {
   static const String kQuranModePref = 'quran_mode';
   static const String kSavedCurrentPage = 'saved_current_page';
   static const String quranMoshafConfigJsonUrl =
-      'https://mawaqit.github.io/mawaqit-announcements/public/quran/config.json';
+      'https://cdn.mawaqit.net/quran/config.json';
 }

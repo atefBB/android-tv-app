@@ -106,7 +106,7 @@ class DownloadQuranRemoteDataSource {
       case MoshafType.warsh:
         return 'warshFileName';
       case MoshafType.hafs:
-        return 'fileName';
+        return 'hafsfileName';
     }
   }
 }
